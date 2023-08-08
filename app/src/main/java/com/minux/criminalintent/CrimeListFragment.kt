@@ -1,6 +1,5 @@
 package com.minux.criminalintent
 
-import android.media.Image
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -68,7 +67,7 @@ class CrimeListFragment : Fragment() {
         fun bind(crime: Crime) {
             this.crime = crime
             titleTextView.text = this.crime.title
-            dateTextView.text = this.crime.date.toString()
+            dateTextView.text = DateUtil(this.crime.date).formattedDate
             solvedImageView.visibility = if (crime.isSolved) {
                 View.VISIBLE
             } else {
