@@ -10,6 +10,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -18,14 +19,9 @@ private const val TAG = "CrimeListFragment"
 
 class CrimeListFragment : Fragment() {
     private lateinit var crimeRecyclerView: RecyclerView
-    private var adapter: CrimeAdapter? = null
+    private var adapter: CrimeAdapter? = CrimeAdapter(emptyList())
     private val crimeListViewModel: CrimeListViewModel by lazy {
         ViewModelProvider(this)[CrimeListViewModel::class.java]
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        Log.d(TAG, "Total crimes: ${crimeListViewModel.crimes.size}")
     }
 
     override fun onCreateView(
@@ -36,14 +32,25 @@ class CrimeListFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_crime_list, container, false)
         crimeRecyclerView = view.findViewById(R.id.crime_recycler_view) as RecyclerView
         crimeRecyclerView.layoutManager = LinearLayoutManager(context)
-
-        updateUI()
+        crimeRecyclerView.adapter = adapter
 
         return view
     }
 
-    private fun updateUI() {
-        val crimes = crimeListViewModel.crimes
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        crimeListViewModel.crimeListLiveData.observe(
+            viewLifecycleOwner,
+            Observer { crimes ->
+                crimes?.let {
+                    Log.i(TAG, "Got crimes ${crimes.size}")
+                    updateUI(crimes)
+                }
+            }
+        )
+    }
+
+    private fun updateUI(crimes: List<Crime>) {
         adapter = CrimeAdapter(crimes)
         crimeRecyclerView.adapter = adapter
     }
@@ -112,28 +119,32 @@ class CrimeListFragment : Fragment() {
     private inner class CrimeAdapter(var crimes: List<Crime>) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-            return when (viewType) {
-                CrimeViewType.CRITICAL -> {
-                    val view = layoutInflater.inflate(R.layout.list_item_critical_crime, parent, false)
-                    CriticalCrimeHolder(view)
-                }
-                else -> {
-                    val view = layoutInflater.inflate(R.layout.list_item_crime, parent, false)
-                    CrimeHolder(view)
-                }
-            }
+//            return when (viewType) {
+//                CrimeViewType.CRITICAL -> {
+//                    val view = layoutInflater.inflate(R.layout.list_item_critical_crime, parent, false)
+//                    CriticalCrimeHolder(view)
+//                }
+//                else -> {
+//                    val view = layoutInflater.inflate(R.layout.list_item_crime, parent, false)
+//                    CrimeHolder(view)
+//                }
+//            }제
+
+            val view = layoutInflater.inflate(R.layout.list_item_crime, parent, false)
+            return CrimeHolder(view)
         }
 
         override fun getItemCount(): Int = crimes.size
-        override fun getItemViewType(position: Int): Int = if (crimes[position].requiresPolice) CrimeViewType.CRITICAL else CrimeViewType.NORMAL
+       // override fun getItemViewType(position: Int): Int = if (crimes[position].requiresPolice) CrimeViewType.CRITICAL else CrimeViewType.NORMAL
 
         override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
             val crime = crimes[position]
-            if (crime.requiresPolice) {
-                (holder as CriticalCrimeHolder).bind(crime)
-            } else {
-                (holder as CrimeHolder).bind(crime)
-            }
+            (holder as CrimeHolder).bind(crime)
+//            if (crime.requiresPolice) {
+//                (holder as CriticalCrimeHolder).bind(crime)
+//            } else {
+//                (holder as CrimeHolder).bind(crime)
+//            }
         }
 
     }
