@@ -65,4 +65,10 @@ class CrimeFragment : Fragment() {
             }
         }
     }
+
+    companion object {
+        fun newInstance(): CrimeFragment {
+            return CrimeFragment()
+        }
+    }
 }
