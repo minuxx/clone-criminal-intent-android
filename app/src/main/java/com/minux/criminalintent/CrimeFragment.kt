@@ -27,6 +27,7 @@ class CrimeFragment : Fragment() {
         crime = Crime()
         val crimeId: UUID = arguments?.getSerializable(ARG_CRIME_ID) as UUID
         Log.d(TAG, "args bundle crime ID: $crimeId")
+        // DB에서 데이터 가져오기
     }
 
     override fun onCreateView(
