@@ -13,15 +13,18 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.RecyclerView.ViewHolder
 import java.util.UUID
 
 private const val TAG = "CrimeListFragment"
 
 class CrimeListFragment : Fragment() {
     private lateinit var crimeRecyclerView: RecyclerView
-    private var adapter: CrimeAdapter? = CrimeAdapter(emptyList())
+    private var adapter: CrimeAdapter = CrimeAdapter()
     private val crimeListViewModel: CrimeListViewModel by lazy {
         ViewModelProvider(this)[CrimeListViewModel::class.java]
     }
@@ -57,7 +60,7 @@ class CrimeListFragment : Fragment() {
             Observer { crimes ->
                 crimes?.let {
                     Log.i(TAG, "Got crimes ${crimes.size}")
-                    updateUI(crimes)
+                    adapter.submitList(it)
                 }
             }
         )
@@ -68,18 +71,13 @@ class CrimeListFragment : Fragment() {
         callbacks = null
     }
 
-    private fun updateUI(crimes: List<Crime>) {
-        adapter = CrimeAdapter(crimes)
-        crimeRecyclerView.adapter = adapter
-    }
-
     companion object {
         fun newInstance(): CrimeListFragment {
             return CrimeListFragment()
         }
     }
 
-    private inner class CrimeHolder(view: View) : RecyclerView.ViewHolder(view), View.OnClickListener {
+    private inner class CrimeHolder(view: View) : ViewHolder(view), View.OnClickListener {
         private lateinit var crime: Crime
         private val titleTextView: TextView = itemView.findViewById(R.id.crime_title)
         private val dateTextView: TextView = itemView.findViewById(R.id.crime_date)
@@ -103,68 +101,31 @@ class CrimeListFragment : Fragment() {
         override fun onClick(v: View?) {
             Toast.makeText(context, "${crime.title} pressed!", Toast.LENGTH_SHORT).show()
             callbacks?.onCrimeSelected(crime.id)
-           }
-    }
-
-    private inner class CriticalCrimeHolder(view: View) : RecyclerView.ViewHolder(view), View.OnClickListener {
-        private lateinit var crime: Crime
-        private val titleTextView: TextView = itemView.findViewById(R.id.crime_title)
-        private val dateTextView: TextView = itemView.findViewById(R.id.crime_date)
-        private val requiresPoliceButton: Button = itemView.findViewById(R.id.crime_requires_police)
-
-        init {
-            itemView.setOnClickListener(this)
-        }
-
-        fun bind(crime: Crime) {
-            this.crime = crime
-            titleTextView.text = this.crime.title
-            dateTextView.text = this.crime.date.toString()
-            requiresPoliceButton.setOnClickListener {
-                Toast.makeText(context, "${crime.title} requires Police!", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        override fun onClick(v: View?) {
-            Toast.makeText(context, "${crime.title} pressed!", Toast.LENGTH_SHORT).show()
         }
     }
 
-    object CrimeViewType {
-        const val NORMAL = 0
-        const val CRITICAL = 1
-    }
+    private inner class CrimeAdapter() : ListAdapter<Crime, CrimeHolder>(CrimeDiffCallback) {
 
-    private inner class CrimeAdapter(var crimes: List<Crime>) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-//            return when (viewType) {
-//                CrimeViewType.CRITICAL -> {
-//                    val view = layoutInflater.inflate(R.layout.list_item_critical_crime, parent, false)
-//                    CriticalCrimeHolder(view)
-//                }
-//                else -> {
-//                    val view = layoutInflater.inflate(R.layout.list_item_crime, parent, false)
-//                    CrimeHolder(view)
-//                }
-//            }제
-
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CrimeHolder {
             val view = layoutInflater.inflate(R.layout.list_item_crime, parent, false)
             return CrimeHolder(view)
         }
 
-        override fun getItemCount(): Int = crimes.size
-       // override fun getItemViewType(position: Int): Int = if (crimes[position].requiresPolice) CrimeViewType.CRITICAL else CrimeViewType.NORMAL
+        override fun getItemCount(): Int = currentList.size
 
-        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-            val crime = crimes[position]
-            (holder as CrimeHolder).bind(crime)
-//            if (crime.requiresPolice) {
-//                (holder as CriticalCrimeHolder).bind(crime)
-//            } else {
-//                (holder as CrimeHolder).bind(crime)
-//            }
+        override fun onBindViewHolder(holder: CrimeHolder, position: Int) {
+            val crime = currentList[position]
+            holder.bind(crime)
+        }
+    }
+
+    object CrimeDiffCallback : DiffUtil.ItemCallback<Crime>() {
+        override fun areItemsTheSame(oldItem: Crime, newItem: Crime): Boolean {
+            return oldItem.id == newItem.id
         }
 
+        override fun areContentsTheSame(oldItem: Crime, newItem: Crime): Boolean {
+            return oldItem == newItem
+        }
     }
 }
