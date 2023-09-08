@@ -14,11 +14,13 @@ import android.widget.EditText
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import java.util.Date
 import java.util.UUID
 
 private const val TAG = "CrimeFragment"
 private const val ARG_CRIME_ID = "crime_id"
 private const val DIALOG_DATE = "DialogDate"
+const val REQUEST_DATE = "RequestDate"
 
 class CrimeFragment : Fragment() {
     private lateinit var crime: Crime
@@ -35,6 +37,15 @@ class CrimeFragment : Fragment() {
         val crimeId: UUID = arguments?.getSerializable(ARG_CRIME_ID) as UUID
         Log.d(TAG, "args bundle crime ID: $crimeId")
         crimeDetailViewModel.loadCrime(crimeId)
+
+        parentFragmentManager.setFragmentResultListener(REQUEST_DATE, this) { requestKey, result ->
+            val date = result.customGetSerializable<Date>(ARG_DATE)
+            Log.i(TAG, "$date")
+            date?.let {
+                crime.date = it
+                updateUI()
+            }
+        }
     }
 
     override fun onCreateView(
