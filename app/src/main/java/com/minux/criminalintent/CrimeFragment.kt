@@ -28,6 +28,7 @@ class CrimeFragment : Fragment() {
     private lateinit var dateButton: Button
     private lateinit var solvedCheckBox: CheckBox
     private lateinit var reportButton: Button
+    private lateinit var suspectButton: Button
 
     private val crimeDetailViewModel: CrimeDetailViewModel by lazy {
         ViewModelProvider(this)[CrimeDetailViewModel::class.java]
@@ -61,6 +62,7 @@ class CrimeFragment : Fragment() {
         dateButton = view.findViewById(R.id.crime_date) as Button
         solvedCheckBox = view.findViewById(R.id.crime_solved) as CheckBox
         reportButton = view.findViewById(R.id.crime_report) as Button
+        suspectButton = view.findViewById(R.id.crime_suspect) as Button
 
         return view
     }
@@ -117,6 +119,10 @@ class CrimeFragment : Fragment() {
                 val chooserIntent = Intent.createChooser(intent, getString(R.string.send_report))
                 startActivity(chooserIntent)
             }
+        }
+
+        suspectButton.setOnClickListener {
+
         }
     }
 
