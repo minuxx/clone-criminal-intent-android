@@ -1,7 +1,9 @@
 package com.minux.criminalintent
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.ContactsContract
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
@@ -11,6 +13,9 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
@@ -34,19 +39,41 @@ class CrimeFragment : Fragment() {
         ViewModelProvider(this)[CrimeDetailViewModel::class.java]
     }
 
+    private lateinit var getResultFromContacts: ActivityResultLauncher<Intent>
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         crime = Crime()
         val crimeId: UUID = arguments?.getSerializable(ARG_CRIME_ID) as UUID
-        Log.d(TAG, "args bundle crime ID: $crimeId")
         crimeDetailViewModel.loadCrime(crimeId)
 
-        parentFragmentManager.setFragmentResultListener(REQUEST_DATE, this) { requestKey, result ->
+        parentFragmentManager.setFragmentResultListener(REQUEST_DATE, this) { _, result ->
             val date = result.customGetSerializable<Date>(ARG_DATE)
-            Log.i(TAG, "$date")
             date?.let {
                 crime.date = it
                 updateUI()
+            }
+        }
+
+        getResultFromContacts = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            val data = it.data
+            when {
+                it.resultCode == AppCompatActivity.RESULT_OK && data != null ->{
+                    val contactUri: Uri = data.data ?: return@registerForActivityResult
+                    val queryFields = arrayOf(ContactsContract.Contacts.DISPLAY_NAME)
+                    val cursor = requireActivity().contentResolver
+                        .query(contactUri, queryFields, null, null, null)
+                    cursor?.use { c ->
+                        if (c.count == 0) {
+                            return@registerForActivityResult
+                        }
+                        c.moveToFirst()
+                        val suspect = c.getString(0)
+                        crime.suspect = suspect
+                        crimeDetailViewModel.saveCrime(crime)
+                        suspectButton.text = suspect
+                    }
+                }
             }
         }
     }
@@ -72,6 +99,7 @@ class CrimeFragment : Fragment() {
         crimeDetailViewModel.crimeLiveData.observe(
             viewLifecycleOwner,
             Observer { crime ->
+                Log.d(TAG, "onViewCreated")
                 crime?.let {
                     this.crime = crime
                     updateUI()
@@ -82,10 +110,6 @@ class CrimeFragment : Fragment() {
 
     override fun onStart() {
         super.onStart()
-
-        // EditText 의 TextWatcher나 CheckBox 의 OnCheckChangedListener 등 데이터 입력에 반응하는 리스너들은
-        // 사용자와 상호 작용할 때뿐만 아니라 장치 회전 등으로 인해 뷰 상태가 복원되면서 데이터가 설정될 때도 작동되기 때문에
-        // onStart 에서 설정해줘야 한다.
         val titleWatcher = object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
 
@@ -121,8 +145,11 @@ class CrimeFragment : Fragment() {
             }
         }
 
-        suspectButton.setOnClickListener {
-
+        suspectButton.apply {
+            val pickContactIntent = Intent(Intent.ACTION_PICK, ContactsContract.Contacts.CONTENT_URI)
+            setOnClickListener {
+                getResultFromContacts.launch(pickContactIntent)
+            }
         }
     }
 
@@ -137,6 +164,10 @@ class CrimeFragment : Fragment() {
         solvedCheckBox.apply {
             isChecked = crime.isSolved
             jumpDrawablesToCurrentState()
+        }
+
+        if (crime.suspect.isNotEmpty()) {
+            suspectButton.text = crime.suspect
         }
     }
 
