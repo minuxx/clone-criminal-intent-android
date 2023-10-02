@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.ContactsContract
+import android.provider.MediaStore
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
@@ -21,9 +22,11 @@ import android.widget.ImageView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import java.io.File
 import java.util.Date
 import java.util.UUID
 
@@ -41,12 +44,15 @@ class CrimeFragment : Fragment() {
     private lateinit var suspectButton: Button
     private lateinit var photoButton: ImageButton
     private lateinit var photoView: ImageView
+    private lateinit var photoFile: File
+    private lateinit var photoUri: Uri
 
     private val crimeDetailViewModel: CrimeDetailViewModel by lazy {
         ViewModelProvider(this)[CrimeDetailViewModel::class.java]
     }
 
     private lateinit var getResultFromContacts: ActivityResultLauncher<Intent>
+    private lateinit var getResultFromCamera: ActivityResultLauncher<Intent>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,27 +68,38 @@ class CrimeFragment : Fragment() {
             }
         }
 
-        getResultFromContacts = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            val data = it.data
-            when {
-                it.resultCode == AppCompatActivity.RESULT_OK && data != null ->{
-                    val contactUri: Uri = data.data ?: return@registerForActivityResult
-                    val queryFields = arrayOf(ContactsContract.Contacts.DISPLAY_NAME)
-                    val cursor = requireActivity().contentResolver
-                        .query(contactUri, queryFields, null, null, null)
-                    cursor?.use { c ->
-                        if (c.count == 0) {
-                            return@registerForActivityResult
+        getResultFromContacts =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+                val data = it.data
+                when {
+                    it.resultCode == AppCompatActivity.RESULT_OK && data != null -> {
+                        val contactUri: Uri = data.data ?: return@registerForActivityResult
+                        val queryFields = arrayOf(ContactsContract.Contacts.DISPLAY_NAME)
+                        val cursor = requireActivity().contentResolver
+                            .query(contactUri, queryFields, null, null, null)
+                        cursor?.use { c ->
+                            if (c.count == 0) {
+                                return@registerForActivityResult
+                            }
+                            c.moveToFirst()
+                            val suspect = c.getString(0)
+                            crime.suspect = suspect
+                            crimeDetailViewModel.saveCrime(crime)
+                            suspectButton.text = suspect
                         }
-                        c.moveToFirst()
-                        val suspect = c.getString(0)
-                        crime.suspect = suspect
-                        crimeDetailViewModel.saveCrime(crime)
-                        suspectButton.text = suspect
                     }
                 }
             }
-        }
+
+        getResultFromCamera =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+                val data = it.data
+                when {
+                    it.resultCode == AppCompatActivity.RESULT_OK && data != null -> {
+
+                    }
+                }
+            }
     }
 
     override fun onCreateView(
@@ -111,6 +128,12 @@ class CrimeFragment : Fragment() {
                 Log.d(TAG, "onViewCreated")
                 crime?.let {
                     this.crime = crime
+                    photoFile = crimeDetailViewModel.getPhotoFile(crime)
+                    photoUri = FileProvider.getUriForFile(
+                        requireActivity(),
+                        "com.minux.criminalintent.fileprovider",
+                        photoFile
+                    )
                     updateUI()
                 }
             }
@@ -155,9 +178,41 @@ class CrimeFragment : Fragment() {
         }
 
         suspectButton.apply {
-            val pickContactIntent = Intent(Intent.ACTION_PICK, ContactsContract.Contacts.CONTENT_URI)
+            val pickContactIntent =
+                Intent(Intent.ACTION_PICK, ContactsContract.Contacts.CONTENT_URI)
             setOnClickListener {
                 getResultFromContacts.launch(pickContactIntent)
+            }
+        }
+
+        photoButton.apply {
+            val packageManager: PackageManager = requireActivity().packageManager
+
+            val captureImage = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+            val resolvedActivity: ResolveInfo? =
+                packageManager.resolveActivity(captureImage, PackageManager.MATCH_DEFAULT_ONLY)
+            if (resolvedActivity == null) {
+                isEnabled = false
+            }
+
+            setOnClickListener {
+                captureImage.putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
+
+                val cameraActivities: List<ResolveInfo> =
+                    packageManager.queryIntentActivities(
+                        captureImage,
+                        PackageManager.MATCH_DEFAULT_ONLY
+                    )
+
+                for (cameraActivity in cameraActivities) {
+                    requireActivity().grantUriPermission(
+                        cameraActivity.activityInfo.packageName,
+                        photoUri,
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    )
+                }
+
+                getResultFromCamera.launch(captureImage)
             }
         }
     }
